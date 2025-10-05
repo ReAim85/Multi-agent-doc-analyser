@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Document Analysis - Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div id="root"></div>
+    
+    <script>
+        const { useState, useRef } = React;
+        const { motion, AnimatePresence } = Motion;
+        
+        // Mock API call
+        const analyzeDocument = async (text, questions) => {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Mock response
+            return {
+                summary: "This document discusses the transformative impact of Artificial Intelligence across various industries. The main points include the adoption of AI technologies in healthcare and finance, the capabilities of machine learning algorithms to process large datasets, and the identification of patterns for accurate predictions. Key insights reveal both opportunities and challenges that AI brings to society.",
+                sentiment: {
+                    sentiment: "positive",
+                    confidence: 0.87
+                },
+                qa: questions.map(q => ({
+                    question: q,
+                    answer: `This is a simulated answer for: "${q}". The AI agents have processed your question and provided relevant insights based on the document content.`
+                })),
+                metadata: {
+                    word_count: text.split(' ').length,
+                    summary_length: 45,
+                    questions_answered: questions.length
+                }
+            };
+        };
+        
+        const DocumentInput = ({ onAnalyze }) => {
+            const [text, setText] = useState('');
+            const [questions, setQuestions] = useState([]);
+            const [newQuestion, setNewQuestion] = useState('');
+            
+            const addQuestion = () => {
+                if (newQuestion.trim()) {
+                    setQuestions([...questions, newQuestion.trim()]);
+                    setNewQuestion('');
+                }
+            };
+            
+            const removeQuestion = (index) => {
+                setQuestions(questions.filter((_, i) => i !== index));
+            };
+            
+            const handleAnalyze = () => {
+                if (text.trim()) {
+                    onAnalyze(text, questions);
+                }
+            };
+            
+            return (
+                React.createElement(motion.div, {
+                    initial: { opacity: 0, y: 20 },
+                    animate: { opacity: 1, y: 0 },
+                    className: "space-y-6"
+                },
+                    React.createElement('h2', { className: "text-2xl font-bold text-gray-900 dark:text-white" }, "Document Input"),
+                    
+                    React.createElement('div', { className: "space-y-2" },
+                        React.createElement('label', { className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Enter your text:"),
+                        React.createElement('textarea', {
+                            value: text,
+                            onChange: (e) => setText(e.target.value),
+                            placeholder: "Enter your document text...",
+                            className: "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white min-h-[200px] resize-y"
+                        })
+                    ),
+                    
+                    React.createElement('div', { className: "space-y-4" },
+                        React.createElement('label', { className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Questions (optional):"),
+                        React.createElement('div', { className: "flex space-x-2" },
+                            React.createElement('input', {
+                                type: "text",
+                                value: newQuestion,
+                                onChange: (e) => setNewQuestion(e.target.value),
+                                onKeyPress: (e) => e.key === 'Enter' && addQuestion(),
+                                placeholder: "Enter a question...",
+                                className: "flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            }),
+                            React.createElement(motion.button, {
+                                whileHover: { scale: 1.05 },
+                                whileTap: { scale: 0.95 },
+                                onClick: addQuestion,
+                                className: "px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                            }, "+")
+                        ),
+                        questions.length > 0 && React.createElement('div', { className: "space-y-2" },
+                            questions.map((question, index) =>
+                                React.createElement(motion.div, {
+                                    key: index,
+                                    initial: { opacity: 0, x: -20 },
+                                    animate: { opacity: 1, x: 0 },
+                                    className: "flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-lg p-3"
+                                },
+                                    React.createElement('span', { className: "text-sm text-gray-700 dark:text-gray-300" }, question),
+                                    React.createElement('button', {
+                                        onClick: () => removeQuestion(index),
+                                        className: "text-red-500 hover:text-red-700"
+                                    }, "×")
+                                )
+                            )
+                        )
+                    ),
+                    
+                    React.createElement(motion.button, {
+                        whileHover: { scale: 1.02 },
+                        whileTap: { scale: 0.98 },
+                        onClick: handleAnalyze,
+                        disabled: !text.trim(),
+                        className: "w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-4 rounded-lg text-lg"
+                    }, "Analyze Document")
+                )
+            );
+        };
+        
+        const LoadingSpinner = () => (
+            React.createElement(motion.div, {
+                initial: { opacity: 0, scale: 0.8 },
+                animate: { opacity: 1, scale: 1 },
+                className: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-12 text-center"
+            },
+                React.createElement('div', { className: "flex flex-col items-center space-y-4" },
+                    React.createElement('div', { className: "flex space-x-2" },
+                        [0, 1, 2].map(index =>
+                            React.createElement(motion.div, {
+                                key: index,
+                                className: "w-3 h-3 bg-blue-600 rounded-full",
+                                animate: {
+                                    scale: [1, 1.5, 1],
+                                    opacity: [0.5, 1, 0.5],
+                                },
+                                transition: {
+                                    duration: 1.5,
+                                    repeat: Infinity,
+                                    delay: index * 0.2,
+                                }
+                            })
+                        )
+                    ),
+                    React.createElement('h3', { className: "text-lg font-medium text-gray-900 dark:text-white" }, "Analyzing Document"),
+                    React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Our AI agents are processing your document...")
+                )
+            )
+        );
+        
+        const AgentResults = ({ result }) => {
+            const [expandedQA, setExpandedQA] = useState(null);
+            
+            const getSentimentColor = (sentiment) => {
+                switch (sentiment.toLowerCase()) {
+                    case 'positive': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+                    case 'negative': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+                    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+                }
+            };
+            
+            return (
+                React.createElement(motion.div, {
+                    initial: { opacity: 0 },
+                    animate: { opacity: 1 },
+                    className: "space-y-6"
+                },
+                    React.createElement('h2', { className: "text-2xl font-bold text-gray-900 dark:text-white" }, "Analysis Results"),
+                    
+                    React.createElement('div', { className: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6" },
+                        React.createElement('div', { className: "flex items-center space-x-3 mb-4" },
+                            React.createElement('div', { className: "p-2 bg-blue-100 dark:bg-blue-900 rounded-lg" },
+                                React.createElement('div', { className: "w-5 h-5 text-blue-600 dark:text-blue-400" }, "📄")
+                            ),
+                            React.createElement('h3', { className: "text-lg font-semibold text-gray-900 dark:text-white" }, "Summary")
+                        ),
+                        React.createElement('p', { className: "text-gray-700 dark:text-gray-300 leading-relaxed" }, result.summary)
+                    ),
+                    
+                    React.createElement('div', { className: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6" },
+                        React.createElement('div', { className: "flex items-center space-x-3 mb-4" },
+                            React.createElement('div', { className: "p-2 bg-pink-100 dark:bg-pink-900 rounded-lg" },
+                                React.createElement('div', { className: "w-5 h-5 text-pink-600 dark:text-pink-400" }, "❤️")
+                            ),
+                            React.createElement('h3', { className: "text-lg font-semibold text-gray-900 dark:text-white" }, "Sentiment Analysis")
+                        ),
+                        React.createElement('div', { className: "flex items-center space-x-4 mb-4" },
+                            React.createElement('span', { 
+                                className: `px-3 py-1 rounded-full text-sm font-medium ${getSentimentColor(result.sentiment.sentiment)}`
+                            }, result.sentiment.sentiment.charAt(0).toUpperCase() + result.sentiment.sentiment.slice(1)),
+                            React.createElement('span', { className: "text-sm text-gray-600 dark:text-gray-400" }, 
+                                `Confidence: ${Math.round(result.sentiment.confidence * 100)}%`
+                            )
+                        )
+                    ),
+                    
+                    result.qa.length > 0 && React.createElement('div', { className: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6" },
+                        React.createElement('div', { className: "flex items-center space-x-3 mb-4" },
+                            React.createElement('div', { className: "p-2 bg-green-100 dark:bg-green-900 rounded-lg" },
+                                React.createElement('div', { className: "w-5 h-5 text-green-600 dark:text-green-400" }, "💬")
+                            ),
+                            React.createElement('h3', { className: "text-lg font-semibold text-gray-900 dark:text-white" }, "Q&A Results")
+                        ),
+                        React.createElement('div', { className: "space-y-3" },
+                            result.qa.map((qa, index) =>
+                                React.createElement('div', {
+                                    key: index,
+                                    className: "border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                                },
+                                    React.createElement('button', {
+                                        onClick: () => setExpandedQA(expandedQA === index ? null : index),
+                                        className: "w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    },
+                                        React.createElement('span', { className: "font-medium text-gray-900 dark:text-white flex-1" }, qa.question),
+                                        React.createElement('span', { className: "text-gray-500" }, expandedQA === index ? "▲" : "▼")
+                                    ),
+                                    expandedQA === index && React.createElement('div', { className: "px-4 pb-3 pt-1 border-t border-gray-200 dark:border-gray-700" },
+                                        React.createElement('p', { className: "text-gray-700 dark:text-gray-300 text-sm" }, qa.answer)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        };
+        
+        const App = () => {
+            const [isDarkMode, setIsDarkMode] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
+            const [analysisResult, setAnalysisResult] = useState(null);
+            
+            const handleAnalysis = async (text, questions) => {
+                setIsLoading(true);
+                setAnalysisResult(null);
+                
+                try {
+                    const result = await analyzeDocument(text, questions);
+                    setAnalysisResult(result);
+                } catch (error) {
+                    console.error('Analysis error:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            return (
+                React.createElement('div', { 
+                    className: `min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`
+                },
+                    React.createElement(motion.header, {
+                        initial: { opacity: 0, y: -20 },
+                        animate: { opacity: 1, y: 0 },
+                        className: "bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700"
+                    },
+                        React.createElement('div', { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" },
+                            React.createElement('div', { className: "flex justify-between items-center h-16" },
+                                React.createElement('div', { className: "flex items-center space-x-3" },
+                                    React.createElement('div', { className: "p-2 bg-blue-100 dark:bg-blue-900 rounded-lg" }, "🧠"),
+                                    React.createElement('h1', { className: "text-xl font-bold text-gray-900 dark:text-white" }, 
+                                        "Multi-Agent Document Analysis"
+                                    )
+                                ),
+                                React.createElement(motion.button, {
+                                    whileHover: { scale: 1.05 },
+                                    whileTap: { scale: 0.95 },
+                                    onClick: () => setIsDarkMode(!isDarkMode),
+                                    className: "p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                }, isDarkMode ? "☀️" : "🌙")
+                            )
+                        )
+                    ),
+                    
+                    React.createElement('main', { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" },
+                        React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-8" },
+                            React.createElement(motion.div, {
+                                initial: { opacity: 0, x: -20 },
+                                animate: { opacity: 1, x: 0 },
+                                transition: { delay: 0.1 }
+                            },
+                                React.createElement(DocumentInput, { onAnalyze: handleAnalysis })
+                            ),
+                            
+                            React.createElement(motion.div, {
+                                initial: { opacity: 0, x: 20 },
+                                animate: { opacity: 1, x: 0 },
+                                transition: { delay: 0.2 }
+                            },
+                                React.createElement(AnimatePresence, { mode: "wait" },
+                                    isLoading ? React.createElement(LoadingSpinner, { key: "loading" }) :
+                                    analysisResult ? React.createElement(AgentResults, { key: "results", result: analysisResult }) :
+                                    React.createElement(motion.div, {
+                                        key: "placeholder",
+                                        initial: { opacity: 0 },
+                                        animate: { opacity: 1 },
+                                        className: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-12 text-center"
+                                    },
+                                        React.createElement('div', { className: "text-6xl mb-4" }, "🧠"),
+                                        React.createElement('h3', { className: "text-lg font-medium text-gray-900 dark:text-white mb-2" }, "Ready to Analyze"),
+                                        React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, 
+                                            "Enter your document text to get started with AI-powered analysis"
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        };
+        
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
+</body>
+</html>

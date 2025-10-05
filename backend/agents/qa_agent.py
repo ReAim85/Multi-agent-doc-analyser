@@ -4,7 +4,7 @@ Simulates question-answering using Cerebras models
 """
 
 import asyncio
-import config
+from . import config
 from typing import List, Dict, Any
 
 

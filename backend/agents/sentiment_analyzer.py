@@ -4,7 +4,7 @@ Simulates sentiment analysis using Cerebras models
 """
 
 import asyncio
-import config
+from . import config
 from typing import Dict, Any
 import random
 

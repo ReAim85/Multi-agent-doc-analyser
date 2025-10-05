@@ -29,7 +29,7 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
       } else if (file.type === 'application/pdf') {
         // For PDF files, we'll let the backend handle the extraction
         // Just show a message that PDF processing will be handled server-side
-        setText('PDF file selected - text will be extracted automatically');
+        setText(''); // ✅ FIX: Clear text area for PDF files
       }
     } catch (error) {
       alert('Error reading file');
@@ -75,8 +75,33 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
   };
 
   const handleAnalyze = () => {
-    if (text.trim() || selectedFile) {
-      onAnalyze(text, questions, selectedFile || undefined);
+    // ✅ FIX: Check if we have either text OR a file
+    const hasContent = text.trim() || selectedFile;
+    
+    if (!hasContent) {
+      alert('Please provide text content or upload a file');
+      return;
+    }
+
+    // ✅ FIX: For file uploads, send empty text (backend will use the file)
+    // For text input, send the actual text
+    const textToSend = selectedFile ? '' : text.trim();
+    
+    console.log('📤 Sending to analysis:', {
+      hasFile: !!selectedFile,
+      textLength: textToSend.length,
+      questions: questions
+    });
+
+    onAnalyze(textToSend, questions, selectedFile || undefined);
+  };
+
+  const clearAll = () => {
+    setText('');
+    setQuestions([]);
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -141,8 +166,8 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
             className="btn-primary"
           >
             <div className="flex items-center">
-            <Upload className="h-4 w-4 mr-2" />
-            Choose File
+              <Upload className="h-4 w-4 mr-2" />
+              Choose File
             </div>
           </motion.button>
           <input
@@ -153,19 +178,56 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
             className="hidden"
           />
         </motion.div>
+
+        {/* Selected File Info */}
+        {selectedFile && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                  {selectedFile.name}
+                </span>
+                <span className="text-xs text-green-600 dark:text-green-400">
+                  ({(selectedFile.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedFile(null);
+                  setText('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="text-red-500 hover:text-red-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Text Input */}
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Or paste your text here:
+          {selectedFile ? 'Additional text (optional):' : 'Or paste your text here:'}
         </label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Enter your document text..."
+          placeholder={selectedFile ? "Add additional text to analyze with the file..." : "Enter your document text..."}
           className="input-field min-h-[200px] resize-y"
+          disabled={!!selectedFile && selectedFile.type === 'application/pdf'}
         />
+        {selectedFile && selectedFile.type === 'application/pdf' && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            PDF content will be extracted automatically by the server
+          </p>
+        )}
       </motion.div>
 
       {/* Questions Input */}
@@ -211,14 +273,14 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
                   exit={{ opacity: 0, x: 20 }}
                   className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-lg p-3"
                 >
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 text-left">
                     {question}
                   </span>
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => removeQuestion(index)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 flex-shrink-0 ml-2"
                   >
                     <X className="h-4 w-4" />
                   </motion.button>
@@ -229,14 +291,22 @@ const DocumentInput: React.FC<DocumentInputProps> = ({ onAnalyze }) => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Analyze Button */}
-      <motion.div variants={itemVariants}>
+      {/* Action Buttons */}
+      <motion.div variants={itemVariants} className="flex space-x-4">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={clearAll}
+          className="flex-1 btn-secondary"
+        >
+          Clear All
+        </motion.button>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleAnalyze}
-          disabled={!text.trim()}
-          className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-lg py-4"
+          disabled={!text.trim() && !selectedFile}
+          className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-lg py-4"
         >
           Analyze Document
         </motion.button>

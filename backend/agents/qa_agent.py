@@ -69,8 +69,10 @@ class QAAgent:
         
         for question in questions:
             try:
-                prompt = f"Context: {text[:1000]}\n\nQuestion: {question}\nAnswer:"
+                prompt = f"please answer the question based on the context provided. Context: {text[:1000]}\n\nQuestion: {question}\nAnswer: (add your answer here)"
                 answer = await self._call_cerebras_model(prompt)
+
+                print(answer)
                 
                 results.append({
                     "question": question,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -14,14 +14,21 @@ import {
 import { AnalysisResult } from '../types';
 
 interface AgentResultsProps {
-  result: AnalysisResult;
+  result: AnalysisResult | null;
+  isLoading?: boolean;
 }
 
-const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
+const AgentResults: React.FC<AgentResultsProps> = ({ result, isLoading = false }) => {
   const [expandedQA, setExpandedQA] = useState<number | null>(null);
 
+  // Memoized toggle function
+  const toggleQA = useCallback((index: number) => {
+    setExpandedQA(prev => prev === index ? null : index);
+  }, []);
+
   const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment.toLowerCase()) {
+    const cleanSentiment = sentiment?.toLowerCase() || 'neutral';
+    switch (cleanSentiment) {
       case 'positive':
         return <TrendingUp className="h-5 w-5 text-green-500" />;
       case 'negative':
@@ -32,7 +39,8 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
   };
 
   const getSentimentColor = (sentiment: string) => {
-    switch (sentiment.toLowerCase()) {
+    const cleanSentiment = sentiment?.toLowerCase() || 'neutral';
+    switch (cleanSentiment) {
       case 'positive':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 dark:border dark:border-green-700';
       case 'negative':
@@ -41,6 +49,12 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300 dark:border dark:border-gray-600';
     }
   };
+
+  // Memoized summary lines to prevent recalculation
+  const summaryLines = useMemo(() => {
+    if (!result?.summary) return [];
+    return result.summary.split('\n');
+  }, [result?.summary]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -56,6 +70,40 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Skeleton loaders */}
+        {[1, 2, 3].map(i => (
+          <div key={i} className="card animate-pulse">
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Error/empty state
+  if (!result) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center py-12 text-gray-500 dark:text-gray-400"
+      >
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>No analysis results available. Please analyze a document first.</p>
+      </motion.div>
+    );
+  }
+
+console.log(expandedQA);
 
   return (
     <motion.div
@@ -82,63 +130,71 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
               Summary
             </h3>
           </div>
+          
           <div className="text-gray-700 dark:text-gray-300 leading-relaxed space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            {result.summary.split('\n').map((line, index) => {
-              // Handle section headers
-              if (line.startsWith('**') && line.endsWith('**')) {
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 p-3 rounded-lg border-l-4 border-primary-500"
-                  >
-                    <h4 className="font-bold text-gray-900 dark:text-white text-lg flex items-center">
-                      <span className="mr-2">📋</span>
-                      {line.replace(/\*\*/g, '')}
-                    </h4>
-                  </motion.div>
-                );
-              }
-              // Handle bullet points
-              else if (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*')) {
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-start ml-4 mb-2 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <span className="text-primary-600 dark:text-primary-400 mr-3 mt-1 text-lg font-bold">•</span>
-                    <span className="flex-1">{line.replace(/^[•\-*]\s*/, '')}</span>
-                  </motion.div>
-                );
-              }
-              // Handle regular paragraphs
-              else if (line.trim()) {
-                return (
-                  <motion.p
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="mb-3 text-justify"
-                  >
-                    {line}
-                  </motion.p>
-                );
-              }
-              // Handle empty lines
-              else {
+            {summaryLines.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 italic">
+                No summary available.
+              </p>
+            ) : (
+              summaryLines.map((line, index) => {
+                const trimmedLine = line.trim();
+                
+                // Handle section headers
+                if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 p-3 rounded-lg border-l-4 border-primary-500"
+                    >
+                      <h4 className="font-bold text-gray-900 dark:text-white text-lg flex items-center">
+                        <span className="mr-2">📋</span>
+                        {trimmedLine.replace(/\*\*/g, '')}
+                      </h4>
+                    </motion.div>
+                  );
+                }
+                // Handle bullet points
+                else if (trimmedLine.match(/^[•\-*]\s/)) {
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-start ml-4 mb-2 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <span className="text-primary-600 dark:text-primary-400 mr-3 mt-1 text-lg font-bold">•</span>
+                      <span className="flex-1">{trimmedLine.replace(/^[•\-*]\s*/, '')}</span>
+                    </motion.div>
+                  );
+                }
+                // Handle regular paragraphs
+                else if (trimmedLine) {
+                  return (
+                    <motion.p
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="mb-3 text-justify"
+                    >
+                      {trimmedLine}
+                    </motion.p>
+                  );
+                }
+                // Handle empty lines
                 return <br key={index} />;
-              }
-            })}
+              })
+            )}
           </div>
+          
           <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-            <span>Words: {result.metadata.word_count}</span>
-            <span>Summary Length: {result.metadata.summary_length}</span>
+            <span>Words: {result.metadata?.word_count || 0}</span>
+            <span>Summary Length: {result.metadata?.summary_length || 0}</span>
           </div>
         </div>
       </motion.div>
@@ -155,30 +211,30 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
             </h3>
           </div>
           
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="flex items-center space-x-2">
-                {getSentimentIcon(result.sentiment.sentiment)}
-                <span className={`px-4 py-2 rounded-lg text-sm font-medium ${getSentimentColor(result.sentiment.sentiment)}`}>
-                  {result.sentiment.sentiment.charAt(0).toUpperCase() + result.sentiment.sentiment.slice(1)}
-                </span>
-              </div>
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="flex items-center space-x-2">
+              {getSentimentIcon(result.sentiment?.sentiment)}
+              <span className={`px-4 py-2 rounded-lg text-sm font-medium ${getSentimentColor(result.sentiment?.sentiment)}`}>
+                {(result.sentiment?.sentiment || 'Neutral').charAt(0).toUpperCase() + (result.sentiment?.sentiment || 'Neutral').slice(1)}
+              </span>
             </div>
+          </div>
 
           {/* Confidence Meter */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
               <span>Confidence</span>
-              <span>{Math.round(result.sentiment.confidence * 100)}%</span>
+              <span>{Math.round((result.sentiment?.confidence || 0) * 100)}%</span>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${result.sentiment.confidence * 100}%` }}
+                animate={{ width: `${(result.sentiment?.confidence || 0) * 100}%` }}
                 transition={{ duration: 1, ease: "easeOut" }}
                 className={`h-full rounded-full ${
-                  result.sentiment.confidence > 0.8 
+                  (result.sentiment?.confidence || 0) > 0.8 
                     ? 'bg-green-500' 
-                    : result.sentiment.confidence > 0.6 
+                    : (result.sentiment?.confidence || 0) > 0.6 
                     ? 'bg-yellow-500' 
                     : 'bg-red-500'
                 }`}
@@ -189,7 +245,7 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
       </motion.div>
 
       {/* Q&A Card */}
-      {result.qa.length > 0 && (
+      {result.qa && result.qa.length > 0 && (
         <motion.div variants={itemVariants}>
           <div className="card">
             <div className="flex items-center space-x-3 mb-4">
@@ -215,10 +271,12 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
                 >
                   <motion.button
                     whileHover={{ backgroundColor: 'rgba(59, 130, 246, 0.05)' }}
-                    onClick={() => setExpandedQA(expandedQA === index ? null : index)}
+                    onClick={() => toggleQA(index)}
                     className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                    aria-expanded={expandedQA === index}
+                    aria-controls={`qa-answer-${index}`}
                   >
-                    <span className="font-medium text-gray-900 dark:text-white flex-1">
+                    <span className="font-medium text-gray-900 dark:text-white flex-1 text-left">
                       {qa.question}
                     </span>
                     <motion.div
@@ -232,6 +290,7 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
                   <AnimatePresence>
                     {expandedQA === index && (
                       <motion.div
+                        id={`qa-answer-${index}`}
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -266,7 +325,7 @@ const AgentResults: React.FC<AgentResultsProps> = ({ result }) => {
             </span>
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <div>Questions Answered: {result.metadata.questions_answered}</div>
+            <div>Questions Answered: {result.metadata?.questions_answered || 0}</div>
             <div>Processing Status: Complete</div>
           </div>
         </div>
